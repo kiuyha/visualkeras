@@ -55,6 +55,9 @@ def layered_view(model,
     Generates a architecture visualization for a given linear keras model (i.e. one input and output tensor for each
     layer) in layered style (great for CNN).
 
+    For a higher-level façade with presets and caption helpers, prefer
+    :func:`visualkeras.show`.
+
     :param model: A keras model that will be visualized.
     :param to_file: Path to the file to write the created image to. If the image does not exist yet it will be created, else overwritten. Image type is inferred from the file ending. Providing None will disable writing.
     :param min_z: Minimum z size in pixel a layer will have.
@@ -113,6 +116,88 @@ def layered_view(model,
 
     :return: Generated architecture image.
     """
+    using_presets = options is not None or preset is not None
+
+    if not using_presets:
+        defaults = LayeredOptions().to_kwargs()
+        defaults.update({
+            "to_file": None,
+            "type_ignore": None,
+            "index_ignore": None,
+            "color_map": None,
+            "one_dim_orientation": 'z',
+            "index_2D": [],
+            "background_fill": 'white',
+            "draw_volume": True,
+            "draw_reversed": False,
+            "padding": 10,
+            "text_callable": None,
+            "text_vspacing": 4,
+            "spacing": 10,
+            "draw_funnel": True,
+            "shade_step": 10,
+            "legend": False,
+            "legend_text_spacing_offset": 15,
+            "font": None,
+            "font_color": 'black',
+            "show_dimension": False,
+            "sizing_mode": 'accurate',
+            "dimension_caps": None,
+            "relative_base_size": 20,
+        })
+
+        current_params = {
+            "to_file": to_file,
+            "min_z": min_z,
+            "min_xy": min_xy,
+            "max_z": max_z,
+            "max_xy": max_xy,
+            "scale_z": scale_z,
+            "scale_xy": scale_xy,
+            "type_ignore": type_ignore,
+            "index_ignore": index_ignore,
+            "color_map": color_map,
+            "one_dim_orientation": one_dim_orientation,
+            "index_2D": index_2D,
+            "background_fill": background_fill,
+            "draw_volume": draw_volume,
+            "draw_reversed": draw_reversed,
+            "padding": padding,
+            "text_callable": text_callable,
+            "text_vspacing": text_vspacing,
+            "spacing": spacing,
+            "draw_funnel": draw_funnel,
+            "shade_step": shade_step,
+            "legend": legend,
+            "legend_text_spacing_offset": legend_text_spacing_offset,
+            "font": font,
+            "font_color": font_color,
+            "show_dimension": show_dimension,
+            "sizing_mode": sizing_mode,
+            "dimension_caps": dimension_caps,
+            "relative_base_size": relative_base_size,
+        }
+
+        custom_keys = [
+            key for key, value in current_params.items()
+            if key in defaults and value != defaults[key]
+        ]
+
+        if len(custom_keys) >= 5:
+            warnings.warn(
+                "layered_view received many custom keyword arguments. "
+                "Consider using visualkeras.show(..., preset=...) for a simpler workflow.",
+                UserWarning,
+                stacklevel=2,
+            )
+
+        if text_callable is not None and not isinstance(text_callable, str):
+            warnings.warn(
+                "Custom text_callable detected. Built-in caption templates are available "
+                "via visualkeras.show(..., text_callable='name').",
+                UserWarning,
+                stacklevel=2,
+            )
     if preset is not None or options is not None:
         defaults = LayeredOptions().to_kwargs()
         defaults["type_ignore"] = None

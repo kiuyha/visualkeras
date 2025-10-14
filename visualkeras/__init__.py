@@ -30,3 +30,4 @@ from visualkeras.options import (
     GRAPH_PRESETS,
     LAYERED_TEXT_CALLABLES,
 )
+from visualkeras.show import show
