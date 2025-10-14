@@ -2,10 +2,10 @@ from typing import Any, Mapping, Union
 import aggdraw
 from PIL import Image, ImageDraw
 from math import ceil
+import warnings
 from .utils import *
 from .layer_utils import *
 from .options import GraphOptions, GRAPH_PRESETS
-
 
 class _DummyLayer:
 
@@ -51,6 +51,52 @@ def graph_view(model, to_file: str = None,
 
     :return: Generated architecture image.
     """
+    using_presets = options is not None or preset is not None
+
+    if not using_presets:
+        defaults = GraphOptions().to_kwargs()
+        defaults.update({
+            "to_file": None,
+            "color_map": None,
+            "node_size": 50,
+            "background_fill": 'white',
+            "padding": 10,
+            "layer_spacing": 250,
+            "node_spacing": 10,
+            "connector_fill": 'gray',
+            "connector_width": 1,
+            "ellipsize_after": 10,
+            "inout_as_tensor": True,
+            "show_neurons": True,
+        })
+
+        current_params = {
+            "to_file": to_file,
+            "color_map": color_map,
+            "node_size": node_size,
+            "background_fill": background_fill,
+            "padding": padding,
+            "layer_spacing": layer_spacing,
+            "node_spacing": node_spacing,
+            "connector_fill": connector_fill,
+            "connector_width": connector_width,
+            "ellipsize_after": ellipsize_after,
+            "inout_as_tensor": inout_as_tensor,
+            "show_neurons": show_neurons,
+        }
+
+        custom_keys = [
+            key for key, value in current_params.items()
+            if key in defaults and value != defaults[key]
+        ]
+
+        if len(custom_keys) >= 4:
+            warnings.warn(
+                "graph_view received many custom keyword arguments. "
+                "Consider using visualkeras.show(..., mode='graph', preset=...) and the GraphOptions dataclass for a simpler workflow.",
+                UserWarning,
+                stacklevel=2,
+            )
 
     if preset is not None or options is not None:
         defaults = GraphOptions().to_kwargs()

@@ -4,7 +4,7 @@ from PIL import ImageFont
 from math import ceil
 from .utils import *
 from .layer_utils import *
-from .options import LayeredOptions, LAYERED_PRESETS
+from .options import LayeredOptions, LAYERED_PRESETS, LAYERED_TEXT_CALLABLES
 import warnings
 
 try:
@@ -17,6 +17,8 @@ except:
             from keras import layers
         except:
             warnings.warn("Could not import the 'layers' module from Keras. text_callable will not work.")
+
+_BUILT_IN_TEXT_CALLABLES = tuple(LAYERED_TEXT_CALLABLES.values())
 
 def layered_view(model, 
                  to_file: str = None, 
@@ -55,9 +57,6 @@ def layered_view(model,
     Generates a architecture visualization for a given linear keras model (i.e. one input and output tensor for each
     layer) in layered style (great for CNN).
 
-    For a higher-level façade with presets and caption helpers, prefer
-    :func:`visualkeras.show`.
-
     :param model: A keras model that will be visualized.
     :param to_file: Path to the file to write the created image to. If the image does not exist yet it will be created, else overwritten. Image type is inferred from the file ending. Providing None will disable writing.
     :param min_z: Minimum z size in pixel a layer will have.
@@ -75,9 +74,7 @@ def layered_view(model,
     :param draw_volume: Flag to switch between 3D volumetric view and 2D box view.
     :param draw_reversed: Draw 3D boxes reversed, going from front-right to back-left.
     :param padding: Distance in pixel before the first and after the last layer.
-    :param text_callable: Callable receiving ``(layer_index, layer)`` and returning a
-        ``(text, above)`` tuple that describes text to draw per layer. See
-        ``visualkeras.LAYERED_TEXT_CALLABLES`` for ready-made templates.
+    :param text_callable: update later
     :param text_vspacing: The vertical spacing between lines of text which are drawn as a result of the text_callable.
     :param spacing: Spacing in pixel between two layers
     :param draw_funnel: If set to True, a funnel will be drawn between consecutive layers
@@ -191,13 +188,6 @@ def layered_view(model,
                 stacklevel=2,
             )
 
-        if text_callable is not None and not isinstance(text_callable, str):
-            warnings.warn(
-                "Custom text_callable detected. Built-in caption templates are available "
-                "via visualkeras.show(..., text_callable='name').",
-                UserWarning,
-                stacklevel=2,
-            )
     if preset is not None or options is not None:
         defaults = LayeredOptions().to_kwargs()
         defaults["type_ignore"] = None
@@ -310,6 +300,14 @@ def layered_view(model,
             color_map = dict(color_map)
         if dimension_caps is not None and not isinstance(dimension_caps, dict):
             dimension_caps = dict(dimension_caps)
+
+    if callable(text_callable) and text_callable not in _BUILT_IN_TEXT_CALLABLES:
+        warnings.warn(
+            "Custom text_callable detected. Built-in caption templates are available "
+            "via visualkeras.show(..., text_callable='name').",
+            UserWarning,
+            stacklevel=2,
+        )
 
     # Deprecation warning for legend_text_spacing_offset
     if legend_text_spacing_offset != 0:
