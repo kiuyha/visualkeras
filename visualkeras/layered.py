@@ -1,9 +1,10 @@
-from typing import Callable
+from typing import Any, Callable, Mapping, Union
 import aggdraw
 from PIL import ImageFont
 from math import ceil
 from .utils import *
 from .layer_utils import *
+from .options import LayeredOptions, LAYERED_PRESETS
 import warnings
 
 try:
@@ -46,7 +47,10 @@ def layered_view(model,
                  show_dimension=False,
                  sizing_mode: str = 'accurate',
                  dimension_caps: dict = None,
-                 relative_base_size: int = 20) -> Image:
+                 relative_base_size: int = 20,
+                 *,
+                 options: Union[LayeredOptions, Mapping[str, Any], None] = None,
+                 preset: Union[str, None] = None) -> Image:
     """
     Generates a architecture visualization for a given linear keras model (i.e. one input and output tensor for each
     layer) in layered style (great for CNN).
@@ -68,7 +72,9 @@ def layered_view(model,
     :param draw_volume: Flag to switch between 3D volumetric view and 2D box view.
     :param draw_reversed: Draw 3D boxes reversed, going from front-right to back-left.
     :param padding: Distance in pixel before the first and after the last layer.
-    :param text_callable: update later
+    :param text_callable: Callable receiving ``(layer_index, layer)`` and returning a
+        ``(text, above)`` tuple that describes text to draw per layer. See
+        ``visualkeras.LAYERED_TEXT_CALLABLES`` for ready-made templates.
     :param text_vspacing: The vertical spacing between lines of text which are drawn as a result of the text_callable.
     :param spacing: Spacing in pixel between two layers
     :param draw_funnel: If set to True, a funnel will be drawn between consecutive layers
@@ -97,10 +103,129 @@ def layered_view(model,
         - A layer with 32 units gets visual size 32×5=160 pixels (exactly half)  
         - A layer with 16 units gets visual size 16×5=80 pixels (exactly half of 32)
         This maintains true proportional relationships between all layers (default: 20).
+    :param options: Optional configuration bundle (``LayeredOptions`` or mapping)
+        providing defaults for the renderer. Values passed directly to
+        ``layered_view`` override the bundle.
+    :param preset: Name of an entry in ``visualkeras.LAYERED_PRESETS`` to use as a
+        starting point. Combine with ``options`` or explicit keyword arguments for
+        tweaks.
 
 
     :return: Generated architecture image.
     """
+    if preset is not None or options is not None:
+        defaults = LayeredOptions().to_kwargs()
+        defaults["type_ignore"] = None
+        defaults["index_ignore"] = None
+        defaults["color_map"] = None
+        defaults["text_callable"] = None
+        defaults["dimension_caps"] = None
+        defaults["font"] = None
+        defaults["index_2D"] = []
+
+        resolved = dict(defaults)
+
+        if preset is not None:
+            try:
+                resolved.update(LAYERED_PRESETS[preset].to_kwargs())
+            except KeyError as exc:
+                available = ", ".join(sorted(LAYERED_PRESETS.keys()))
+                raise ValueError(
+                    f"Unknown layered preset '{preset}'. Available presets: {available}"
+                ) from exc
+
+        if options is not None:
+            if isinstance(options, LayeredOptions):
+                option_values = options.to_kwargs()
+            elif isinstance(options, Mapping):
+                option_values = dict(options)
+            else:
+                raise TypeError(
+                    "options must be a LayeredOptions instance or a mapping of keyword arguments."
+                )
+            resolved.update(option_values)
+
+        explicit_values = {
+            "to_file": to_file,
+            "min_z": min_z,
+            "min_xy": min_xy,
+            "max_z": max_z,
+            "max_xy": max_xy,
+            "scale_z": scale_z,
+            "scale_xy": scale_xy,
+            "type_ignore": type_ignore,
+            "index_ignore": index_ignore,
+            "color_map": color_map,
+            "one_dim_orientation": one_dim_orientation,
+            "index_2D": index_2D,
+            "background_fill": background_fill,
+            "draw_volume": draw_volume,
+            "draw_reversed": draw_reversed,
+            "padding": padding,
+            "text_callable": text_callable,
+            "text_vspacing": text_vspacing,
+            "spacing": spacing,
+            "draw_funnel": draw_funnel,
+            "shade_step": shade_step,
+            "legend": legend,
+            "legend_text_spacing_offset": legend_text_spacing_offset,
+            "font": font,
+            "font_color": font_color,
+            "show_dimension": show_dimension,
+            "sizing_mode": sizing_mode,
+            "dimension_caps": dimension_caps,
+            "relative_base_size": relative_base_size,
+        }
+
+        for key, value in explicit_values.items():
+            if key not in defaults:
+                continue
+            if value != defaults[key]:
+                resolved[key] = value
+
+        to_file = resolved["to_file"]
+        min_z = resolved["min_z"]
+        min_xy = resolved["min_xy"]
+        max_z = resolved["max_z"]
+        max_xy = resolved["max_xy"]
+        scale_z = resolved["scale_z"]
+        scale_xy = resolved["scale_xy"]
+        type_ignore = resolved["type_ignore"]
+        index_ignore = resolved["index_ignore"]
+        color_map = resolved["color_map"]
+        one_dim_orientation = resolved["one_dim_orientation"]
+        index_2D = resolved["index_2D"]
+        background_fill = resolved["background_fill"]
+        draw_volume = resolved["draw_volume"]
+        draw_reversed = resolved["draw_reversed"]
+        padding = resolved["padding"]
+        text_callable = resolved["text_callable"]
+        text_vspacing = resolved["text_vspacing"]
+        spacing = resolved["spacing"]
+        draw_funnel = resolved["draw_funnel"]
+        shade_step = resolved["shade_step"]
+        legend = resolved["legend"]
+        legend_text_spacing_offset = resolved["legend_text_spacing_offset"]
+        font = resolved["font"]
+        font_color = resolved["font_color"]
+        show_dimension = resolved["show_dimension"]
+        sizing_mode = resolved["sizing_mode"]
+        dimension_caps = resolved["dimension_caps"]
+        relative_base_size = resolved["relative_base_size"]
+
+        if type_ignore is not None and not isinstance(type_ignore, list):
+            type_ignore = list(type_ignore)
+        if index_ignore is not None and not isinstance(index_ignore, list):
+            index_ignore = list(index_ignore)
+        if index_2D is None:
+            index_2D = []
+        elif not isinstance(index_2D, list):
+            index_2D = list(index_2D)
+        if color_map is not None and not isinstance(color_map, dict):
+            color_map = dict(color_map)
+        if dimension_caps is not None and not isinstance(dimension_caps, dict):
+            dimension_caps = dict(dimension_caps)
+
     # Deprecation warning for legend_text_spacing_offset
     if legend_text_spacing_offset != 0:
         warnings.warn("The legend_text_spacing_offset parameter is deprecated and will be removed in a future release.")
