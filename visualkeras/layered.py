@@ -20,6 +20,49 @@ except:
 
 _BUILT_IN_TEXT_CALLABLES = tuple(LAYERED_TEXT_CALLABLES.values())
 
+
+def _resolve_layer_output_shape(layer) -> Any:
+    """
+    Attempt to retrieve a layer's output shape across keras/tensorflow versions.
+
+    Prefers an explicit ``output_shape`` attribute, falls back to the tensor's
+    shape, and finally tries ``compute_output_shape`` when available.
+    """
+    shape = getattr(layer, "output_shape", None)
+    if shape is not None:
+        return _shape_to_tuple(shape)
+
+    output = getattr(layer, "output", None)
+    tensor_shape = getattr(output, "shape", None)
+    if tensor_shape is not None:
+        return _shape_to_tuple(tensor_shape)
+
+    compute_output_shape = getattr(layer, "compute_output_shape", None)
+    if callable(compute_output_shape):
+        input_shape = getattr(layer, "input_shape", None)
+        if input_shape is not None:
+            try:
+                return _shape_to_tuple(compute_output_shape(input_shape))
+            except Exception:  # noqa: BLE001
+                pass
+
+    return None
+
+
+def _shape_to_tuple(shape: Any) -> Any:
+    if shape is None:
+        return None
+    if isinstance(shape, tuple):
+        return shape
+    if hasattr(shape, "as_list"):
+        try:
+            return tuple(shape.as_list())
+        except Exception:  # noqa: BLE001
+            return tuple(shape)
+    if isinstance(shape, list):
+        return tuple(shape)
+    return shape
+
 def layered_view(model, 
                  to_file: str = None, 
                  min_z: int = 20, 
@@ -74,7 +117,9 @@ def layered_view(model,
     :param draw_volume: Flag to switch between 3D volumetric view and 2D box view.
     :param draw_reversed: Draw 3D boxes reversed, going from front-right to back-left.
     :param padding: Distance in pixel before the first and after the last layer.
-    :param text_callable: update later
+    :param text_callable: Callable receiving ``(layer_index, layer)`` and returning a
+        ``(text, above)`` tuple describing annotations to draw per layer. Built-in
+        presets are available via ``visualkeras.show(..., text_callable='name')``.
     :param text_vspacing: The vertical spacing between lines of text which are drawn as a result of the text_callable.
     :param spacing: Spacing in pixel between two layers
     :param draw_funnel: If set to True, a funnel will be drawn between consecutive layers
@@ -370,7 +415,8 @@ def layered_view(model,
                 layer_name = f'unknown_layer_{index}'
 
         # Get the primary shape of the layer's output
-        shape = extract_primary_shape(layer.output_shape, layer_name)
+        raw_shape = _resolve_layer_output_shape(layer)
+        shape = extract_primary_shape(raw_shape, layer_name)
         
         # Calculate dimensions with flexible sizing
         x, y, z = calculate_layer_dimensions(
