@@ -2,7 +2,7 @@
 
 [![Latest Version](https://img.shields.io/pypi/v/visualkeras.svg)](https://pypi.python.org/pypi/visualkeras)
 [![Download Count](https://img.shields.io/pypi/dm/visualkeras.svg)](https://pypi.python.org/pypi/visualkeras)
-[![CI](https://github.com/<OWNER>/<REPO>/actions/workflows/ci.yaml/badge.svg)](https://github.com/<OWNER>/<REPO>/actions/workflows/ci.yaml)
+[![CI](https://github.com/paulgavrikov/visualkeras/actions/workflows/ci.yaml/badge.svg)](https://github.com/paulgavrikov/visualkeras/actions/workflows/ci.yaml)
 
 ## Introduction
 Visualkeras is a Python package to help visualize Keras (either standalone or included in tensorflow) neural network architectures. It allows easy styling to fit most 
