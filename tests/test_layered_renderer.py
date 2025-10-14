@@ -26,7 +26,7 @@ def _load_all_metrics():
     if not DATA_PATH.exists():
         pytest.skip(
             "Renderer reference metrics missing. Run "
-            "`python3 experiments/generate_renderer_references.py` to regenerate."
+            "`python3 tests/renderer_baselines/generate_renderer_references.py` to regenerate."
         )
     with DATA_PATH.open("r", encoding="utf-8") as fh:
         return json.load(fh)
