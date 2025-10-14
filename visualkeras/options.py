@@ -13,7 +13,7 @@ backend therefore use ``typing.Any`` rather than backend-specific types.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Mapping, Optional
+from typing import Any, Callable, Dict, Mapping, Optional, Tuple
 
 
 @dataclass(frozen=True)
@@ -36,7 +36,7 @@ class LayeredOptions:
     draw_volume: bool = True
     draw_reversed: bool = False
     padding: int = 10
-    text_callable: Optional[Callable[[int, Any], tuple]] = None
+    text_callable: Optional[Callable[[int, Any], Tuple[str, bool]]] = None
     text_vspacing: int = 4
     spacing: int = 10
     draw_funnel: bool = True
@@ -120,6 +120,72 @@ class GraphOptions:
         }
 
 
+# --- Text callable templates ----------------------------------------------- #
+
+def _layer_name(index: int, layer: Any) -> str:
+    """Return a human-friendly layer name with a fallback when missing."""
+    name = getattr(layer, "name", None)
+    if not name:
+        name = f"layer_{index}"
+    return str(name)
+
+
+def _layer_class(layer: Any) -> str:
+    """Return the class name of a layer with a sensible default."""
+    try:
+        return layer.__class__.__name__
+    except AttributeError:
+        return "Layer"
+
+
+def _format_shape_text(layer: Any) -> str:
+    """Format the primary output shape of a layer for display."""
+    shape = getattr(layer, "output_shape", None)
+    if shape is None:
+        return "shape: ?"
+
+    try:
+        from .layer_utils import extract_primary_shape  # Local import to avoid cycles
+
+        primary_shape = extract_primary_shape(shape, getattr(layer, "name", None))
+    except Exception:  # noqa: BLE001 - best-effort formatting
+        primary_shape = shape
+
+    return f"shape: {primary_shape}"
+
+
+LayeredTextCallable = Callable[[int, Any], Tuple[str, bool]]
+
+
+def text_name_only(index: int, layer: Any) -> Tuple[str, bool]:
+    """Show just the layer name beneath the block."""
+    return (_layer_name(index, layer), False)
+
+
+def text_type_and_name(index: int, layer: Any) -> Tuple[str, bool]:
+    """Show the layer type and name above the block."""
+    layer_type = _layer_class(layer)
+    name = _layer_name(index, layer)
+    label = f"{layer_type}\n{name}"
+    return (label, True)
+
+
+def text_name_and_shape(index: int, layer: Any) -> Tuple[str, bool]:
+    """Show the layer name and formatted shape beneath the block."""
+    name = _layer_name(index, layer)
+    shape_text = _format_shape_text(layer)
+    label = f"{name}\n{shape_text}"
+    return (label, False)
+
+
+LAYERED_TEXT_CALLABLES: Dict[str, LayeredTextCallable] = {
+    "name": text_name_only,
+    "type_name": text_type_and_name,
+    "name_shape": text_name_and_shape,
+}
+"""Reusable caption generators keyed by a human-friendly identifier."""
+
+
 # --- Built-in presets ----------------------------------------------------- #
 
 LAYERED_PRESETS: Dict[str, LayeredOptions] = {
@@ -138,6 +204,7 @@ LAYERED_PRESETS: Dict[str, LayeredOptions] = {
         legend=True,
         show_dimension=True,
         sizing_mode="balanced",
+        text_callable=LAYERED_TEXT_CALLABLES["name_shape"],
     ),
 }
 """Curated presets for layered renderings keyed by human-friendly names."""
@@ -159,4 +226,3 @@ GRAPH_PRESETS: Dict[str, GraphOptions] = {
     ),
 }
 """Curated presets for graph renderings keyed by human-friendly names."""
-
