@@ -25,10 +25,10 @@ def _resolve_layer_output_shape(layer) -> Any:
     """
     Attempt to retrieve a layer's output shape across keras/tensorflow versions.
 
-    Prefers an explicit ``output_shape`` attribute, falls back to the tensor's
+    Prefers an explicit ``output.shape`` attribute, falls back to the tensor's
     shape, and finally tries ``compute_output_shape`` when available.
     """
-    shape = getattr(layer, "output_shape", None)
+    shape = getattr(layer, "output.shape", None)
     if shape is not None:
         return _shape_to_tuple(shape)
 
